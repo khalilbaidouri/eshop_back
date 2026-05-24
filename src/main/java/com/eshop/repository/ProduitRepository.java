@@ -3,5 +3,8 @@ package com.eshop.repository;
 /**
  * @author $ {USERS}
  **/
-public class ProduitRepository {
+import com.eshop.entity.Produit;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ProduitRepository extends JpaRepository<Produit, Long> {
 }
