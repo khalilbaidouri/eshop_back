@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/clients")
+@RequestMapping("/api/clients/kk")
 @CrossOrigin(origins = "*") // important pour Next.js
 public class ClientController {
 

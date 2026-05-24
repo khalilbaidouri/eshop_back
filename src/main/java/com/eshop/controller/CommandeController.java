@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/commandes")
+@RequestMapping("/commandes/ll")
 @CrossOrigin("*")
 public class CommandeController {
 

@@ -11,7 +11,7 @@ import java.util.List;
  * @author $ {USERS}
  **/
 @RestController
-@RequestMapping("/api/produits")
+@RequestMapping("/api/produits/jj")
 @CrossOrigin("*")
 public class ProduitController {
 
