@@ -1,9 +1,6 @@
 package com.eshop.entity;
 
-/**
- * @author $ {USERS}
- **/
-
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 
 @Entity
@@ -12,11 +9,7 @@ public class Categorie {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "categorie_seq")
-    @SequenceGenerator(
-            name = "categorie_seq",
-            sequenceName = "SEQ_CATEGORIES",
-            allocationSize = 1
-    )
+    @SequenceGenerator(name = "categorie_seq", sequenceName = "SEQ_CATEGORIE", allocationSize = 1)
     @Column(name = "IDCATEGORIE")
     private Long idCategorie;
 
@@ -25,19 +18,11 @@ public class Categorie {
 
     public Categorie() {}
 
-    public Long getIdCategorie() {
-        return idCategorie;
-    }
+    @JsonProperty("idCategorie")
+    public Long getIdCategorie() { return idCategorie; }
+    public void setIdCategorie(Long idCategorie) { this.idCategorie = idCategorie; }
 
-    public void setIdCategorie(Long idCategorie) {
-        this.idCategorie = idCategorie;
-    }
-
-    public String getDesignation() {
-        return designation;
-    }
-
-    public void setDesignation(String designation) {
-        this.designation = designation;
-    }
+    @JsonProperty("designation")
+    public String getDesignation() { return designation; }
+    public void setDesignation(String designation) { this.designation = designation; }
 }

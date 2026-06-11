@@ -1,13 +1,6 @@
 package com.eshop.entity;
 
-import jakarta.persistence.*;
-
-/**
- * @author $ {USERS}
- **/
-
-import jakarta.persistence.*;
-
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 
 @Entity
@@ -16,11 +9,7 @@ public class Produit {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "produit_seq")
-    @SequenceGenerator(
-            name = "produit_seq",
-            sequenceName = "SEQ_PRODUIT",
-            allocationSize = 1
-    )
+    @SequenceGenerator(name = "produit_seq", sequenceName = "SEQ_PRODUIT", allocationSize = 1)
     @Column(name = "IDPRODUIT")
     private Long idProduit;
 
@@ -39,43 +28,23 @@ public class Produit {
 
     public Produit() {}
 
-    public Long getIdProduit() {
-        return idProduit;
-    }
+    @JsonProperty("idProduit")
+    public Long getIdProduit() { return idProduit; }
+    public void setIdProduit(Long idProduit) { this.idProduit = idProduit; }
 
-    public void setIdProduit(Long idProduit) {
-        this.idProduit = idProduit;
-    }
+    @JsonProperty("designation")
+    public String getDesignation() { return designation; }
+    public void setDesignation(String designation) { this.designation = designation; }
 
-    public String getDesignation() {
-        return designation;
-    }
+    @JsonProperty("prixUnitaire")
+    public Double getPrixUnitaire() { return prixUnitaire; }
+    public void setPrixUnitaire(Double prixUnitaire) { this.prixUnitaire = prixUnitaire; }
 
-    public void setDesignation(String designation) {
-        this.designation = designation;
-    }
+    @JsonProperty("uniteVente")
+    public String getUniteVente() { return uniteVente; }
+    public void setUniteVente(String uniteVente) { this.uniteVente = uniteVente; }
 
-    public Double getPrixUnitaire() {
-        return prixUnitaire;
-    }
-
-    public void setPrixUnitaire(Double prixUnitaire) {
-        this.prixUnitaire = prixUnitaire;
-    }
-
-    public String getUniteVente() {
-        return uniteVente;
-    }
-
-    public void setUniteVente(String uniteVente) {
-        this.uniteVente = uniteVente;
-    }
-
-    public Categorie getCategorie() {
-        return categorie;
-    }
-
-    public void setCategorie(Categorie categorie) {
-        this.categorie = categorie;
-    }
+    @JsonProperty("categorie")
+    public Categorie getCategorie() { return categorie; }
+    public void setCategorie(Categorie categorie) { this.categorie = categorie; }
 }

@@ -1,22 +1,37 @@
 package com.eshop.controller;
 
+import java.sql.CallableStatement;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import java.sql.CallableStatement;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.eshop.entity.Client;
 import com.eshop.entity.LigneCommande;
 import com.eshop.service.ClientService;
 import com.eshop.service.EshopService;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.web.bind.annotation.*;
-import java.util.*;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "http://localhost:3000")
 public class EshopController {
 
-    @Autowired
     private final ClientService clientService;
     private final JdbcTemplate jdbcTemplate;
     private final EshopService service;
@@ -113,15 +128,16 @@ public class EshopController {
     @GetMapping("/produits")
     public List<Map<String, Object>> produits() {
         List<Object[]> rows = jdbcTemplate.query(
-                "SELECT IDPRODUIT, DESIGNATION, PRIXUNITAIRE, IDCATEGORIE FROM ESHOP.PRODUITS ORDER BY IDPRODUIT",
-                (rs, i) -> new Object[]{rs.getLong(1), rs.getString(2), rs.getDouble(3), rs.getLong(4)}
+                "SELECT IDPRODUIT, DESIGNATION, PRIXUNITAIRE, UNITEVENTE, IDCATEGORIE FROM ESHOP.PRODUITS ORDER BY IDPRODUIT",
+                (rs, i) -> new Object[]{rs.getLong(1), rs.getString(2), rs.getDouble(3), rs.getString(4), rs.getLong(5)}
         );
         return rows.stream().map(r -> {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("idProduit", r[0]);
             m.put("designation", r[1]);
             m.put("prixUnitaire", r[2]);
-            m.put("idCategorie", r[3]);
+            m.put("uniteVente", r[3]);
+            m.put("idCategorie", r[4]);
             return m;
         }).toList();
     }
@@ -252,131 +268,203 @@ public class EshopController {
         return result;
     }
 
-    // ─── INSERT Site1 direct ──────────────────────────────────
-    @PostMapping("/site1/lignes")
-    public Map<String, Object> insertSite1(@RequestBody Map<String, Object> body) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        try {
-            int qte = Integer.parseInt(body.get("quantite").toString());
-            if (qte < 100) {
-                result.put("success", false);
-                result.put("message", "Site1 accepte uniquement Quantite >= 100");
-                return result;
-            }
-            Long id = jdbcTemplate.queryForObject(
-                    "SELECT ESHOP.SEQ_LIGNE.NEXTVAL FROM dual", Long.class
-            );
-            jdbcTemplate.update("""
-                INSERT INTO ESHOP1.LIGNECOMMANDES1@LINK_SITE1
-                (IDLIGNECOMMANDE, IDCOMMANDE, IDPRODUIT, QUANTITE, PRIXUNITAIRE, REMISE)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                    id,
-                    Long.parseLong(body.get("idCommande").toString()),
-                    Long.parseLong(body.get("idProduit").toString()),
-                    qte,
-                    Double.parseDouble(body.get("prixUnitaire").toString()),
-                    Double.parseDouble(body.get("remise").toString())
-            );
-            result.put("success", true);
-            result.put("id", id);
-            result.put("message", "Ligne #" + id + " insérée sur Site1 → propagée vers Global");
-        } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", e.getMessage());
-        }
-        return result;
+    // ─── UPDATE Global ────────────────────────────────────────
+@PutMapping("/global/lignes/{id}")
+public Map<String, Object> updateGlobal(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+    Map<String, Object> result = new LinkedHashMap<>();
+    try {
+        int rows = jdbcTemplate.update("""
+            UPDATE ESHOP.LIGNECOMMANDES
+            SET IDPRODUIT = ?, QUANTITE = ?, PRIXUNITAIRE = ?, REMISE = ?
+            WHERE IDLIGNECOMMANDE = ?
+            """,
+            Long.parseLong(body.get("idProduit").toString()),
+            Integer.parseInt(body.get("quantite").toString()),
+            Double.parseDouble(body.get("prixUnitaire").toString()),
+            Double.parseDouble(body.get("remise").toString()),
+            id
+        );
+        result.put("success", rows > 0);
+        result.put("message", rows > 0
+            ? "Ligne " + id + " modifiée → trigger propage vers Site1 ou Site2"
+            : "Ligne introuvable");
+    } catch (Exception e) {
+        result.put("success", false);
+        result.put("message", e.getMessage());
     }
+    return result;
+}
 
-    // ─── INSERT Site2 direct ──────────────────────────────────
-    @PostMapping("/site2/lignes")
-    public Map<String, Object> insertSite2(@RequestBody Map<String, Object> body) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        try {
-            int qte = Integer.parseInt(body.get("quantite").toString());
-            if (qte >= 100) {
-                result.put("success", false);
-                result.put("message", "Site2 accepte uniquement Quantite < 100");
-                return result;
-            }
-            Long id = jdbcTemplate.queryForObject(
-                    "SELECT ESHOP.SEQ_LIGNE.NEXTVAL FROM dual", Long.class
-            );
-            jdbcTemplate.update("""
-                INSERT INTO ESHOP2.LIGNECOMMANDES2@LINK_SITE2
-                (IDLIGNECOMMANDE, IDCOMMANDE, IDPRODUIT, QUANTITE, PRIXUNITAIRE, REMISE)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                    id,
-                    Long.parseLong(body.get("idCommande").toString()),
-                    Long.parseLong(body.get("idProduit").toString()),
-                    qte,
-                    Double.parseDouble(body.get("prixUnitaire").toString()),
-                    Double.parseDouble(body.get("remise").toString())
-            );
-            result.put("success", true);
-            result.put("id", id);
-            result.put("message", "Ligne #" + id + " insérée sur Site2 → propagée vers Global");
-        } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", e.getMessage());
-        }
-        return result;
+// ─── DELETE Global ────────────────────────────────────────
+@DeleteMapping("/global/lignes/{id}")
+public Map<String, Object> deleteGlobal(@PathVariable Long id) {
+    Map<String, Object> result = new LinkedHashMap<>();
+    try {
+        int rows = jdbcTemplate.update(
+            "DELETE FROM ESHOP.LIGNECOMMANDES WHERE IDLIGNECOMMANDE = ?", id
+        );
+        result.put("success", rows > 0);
+        result.put("message", rows > 0
+            ? "Ligne " + id + " supprimée de Global + Sites"
+            : "Ligne introuvable");
+    } catch (Exception e) {
+        result.put("success", false);
+        result.put("message", e.getMessage());
     }
+    return result;
+}
+
+// ─── DELETE Site1 ─────────────────────────────────────────
+@DeleteMapping("/site1/lignes/{id}")
+public Map<String, Object> deleteSite1(@PathVariable Long id) {
+    Map<String, Object> result = new LinkedHashMap<>();
+    try {
+        int rows = jdbcTemplate.update(
+            "DELETE FROM ESHOP1.LIGNECOMMANDES1@LINK_SITE1 WHERE IDLIGNECOMMANDE = ?", id
+        );
+        result.put("success", rows > 0);
+        result.put("message", rows > 0
+            ? "Ligne " + id + " supprimée de Site1 → propagée vers Global"
+            : "Ligne introuvable sur Site1");
+    } catch (Exception e) {
+        result.put("success", false);
+        result.put("message", e.getMessage());
+    }
+    return result;
+}
+
+// ─── DELETE Site2 ─────────────────────────────────────────
+@DeleteMapping("/site2/lignes/{id}")
+public Map<String, Object> deleteSite2(@PathVariable Long id) {
+    Map<String, Object> result = new LinkedHashMap<>();
+    try {
+        int rows = jdbcTemplate.update(
+            "DELETE FROM ESHOP2.LIGNECOMMANDES2@LINK_SITE2 WHERE IDLIGNECOMMANDE = ?", id
+        );
+        result.put("success", rows > 0);
+        result.put("message", rows > 0
+            ? "Ligne " + id + " supprimée de Site2 → propagée vers Global"
+            : "Ligne introuvable sur Site2");
+    } catch (Exception e) {
+        result.put("success", false);
+        result.put("message", e.getMessage());
+    }
+    return result;
+}
+     // ─── INSERT Site1 direct ──────────────────────────────────
+  // ─── INSERT Site1 direct ──────────────────────────────────
+@PostMapping("/site1/lignes")
+public Map<String, Object> insertSite1(@RequestBody Map<String, Object> body) {
+    Map<String, Object> result = new LinkedHashMap<>();
+    try {
+        int qte = Integer.parseInt(body.get("quantite").toString());
+        if (qte < 100) {
+            result.put("success", false);
+            result.put("message", "Site1 accepte uniquement Quantite >= 100");
+            return result;
+        }
+        // Appel de la procédure stockée qui gère le flag anti-boucle
+        jdbcTemplate.execute(
+            "BEGIN ESHOP1.INSERT_AND_SYNC@LINK_SITE1(?, ?, ?, ?, ?); END;",
+            (CallableStatement cs) -> {
+                cs.setLong(1, Long.parseLong(body.get("idCommande").toString()));
+                cs.setLong(2, Long.parseLong(body.get("idProduit").toString()));
+                cs.setInt(3, qte);
+                cs.setDouble(4, Double.parseDouble(body.get("prixUnitaire").toString()));
+                cs.setDouble(5, Double.parseDouble(body.get("remise").toString()));
+                cs.execute();
+                return null;
+            }
+        );
+        result.put("success", true);
+        result.put("message", "Ligne insérée sur Site1 → propagée vers Global");
+    } catch (Exception e) {
+        result.put("success", false);
+        result.put("message", e.getMessage());
+    }
+    return result;
+}
+    // ─── INSERT Site2 direct ──────────────────────────────────
+    // ─── INSERT Site2 direct ──────────────────────────────────
+@PostMapping("/site2/lignes")
+public Map<String, Object> insertSite2(@RequestBody Map<String, Object> body) {
+    Map<String, Object> result = new LinkedHashMap<>();
+    try {
+        int qte = Integer.parseInt(body.get("quantite").toString());
+        if (qte >= 100) {
+            result.put("success", false);
+            result.put("message", "Site2 accepte uniquement Quantite < 100");
+            return result;
+        }
+        jdbcTemplate.execute(
+            "BEGIN ESHOP2.INSERT_AND_SYNC@LINK_SITE2(?, ?, ?, ?, ?); END;",
+            (CallableStatement cs) -> {
+                cs.setLong(1, Long.parseLong(body.get("idCommande").toString()));
+                cs.setLong(2, Long.parseLong(body.get("idProduit").toString()));
+                cs.setInt(3, qte);
+                cs.setDouble(4, Double.parseDouble(body.get("prixUnitaire").toString()));
+                cs.setDouble(5, Double.parseDouble(body.get("remise").toString()));
+                cs.execute();
+                return null;
+            }
+        );
+        result.put("success", true);
+        result.put("message", "Ligne insérée sur Site2 → propagée vers Global");
+    } catch (Exception e) {
+        result.put("success", false);
+        result.put("message", e.getMessage());
+    }
+    return result;
+}
 
     // ─── UPDATE Site1 ─────────────────────────────────────────
-    @PutMapping("/site1/lignes/{id}")
-    public Map<String, Object> updateSite1(@PathVariable Long id, @RequestBody Map<String, Object> body) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        try {
-            int rows = jdbcTemplate.update("""
-                UPDATE ESHOP1.LIGNECOMMANDES1@LINK_SITE1
-                SET IDPRODUIT = ?, QUANTITE = ?, PRIXUNITAIRE = ?, REMISE = ?
-                WHERE IDLIGNECOMMANDE = ?
-                """,
-                    Long.parseLong(body.get("idProduit").toString()),
-                    Integer.parseInt(body.get("quantite").toString()),
-                    Double.parseDouble(body.get("prixUnitaire").toString()),
-                    Double.parseDouble(body.get("remise").toString()),
-                    id
-            );
-            result.put("success", rows > 0);
-            result.put("message", rows > 0
-                    ? "Ligne " + id + " modifiée sur Site1 → propagée vers Global"
-                    : "Ligne introuvable sur Site1");
-        } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", e.getMessage());
-        }
-        return result;
+   // ─── UPDATE Site1 ─────────────────────────────────────────
+@PutMapping("/site1/lignes/{id}")
+public Map<String, Object> updateSite1(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+    Map<String, Object> result = new LinkedHashMap<>();
+    try {
+        jdbcTemplate.execute(
+            "BEGIN ESHOP1.UPDATE_AND_SYNC@LINK_SITE1(?, ?, ?); END;",
+            (CallableStatement cs) -> {
+                cs.setLong(1, id);
+                cs.setInt(2, Integer.parseInt(body.get("quantite").toString()));
+                cs.setDouble(3, Double.parseDouble(body.get("remise").toString()));
+                cs.execute();
+                return null;
+            }
+        );
+        result.put("success", true);
+        result.put("message", "Ligne " + id + " modifiée sur Site1 → propagée vers Global");
+    } catch (Exception e) {
+        result.put("success", false);
+        result.put("message", e.getMessage());
     }
+    return result;
+}
 
-    // ─── UPDATE Site2 ─────────────────────────────────────────
-    @PutMapping("/site2/lignes/{id}")
-    public Map<String, Object> updateSite2(@PathVariable Long id, @RequestBody Map<String, Object> body) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        try {
-            int rows = jdbcTemplate.update("""
-                UPDATE ESHOP2.LIGNECOMMANDES2@LINK_SITE2
-                SET IDPRODUIT = ?, QUANTITE = ?, PRIXUNITAIRE = ?, REMISE = ?
-                WHERE IDLIGNECOMMANDE = ?
-                """,
-                    Long.parseLong(body.get("idProduit").toString()),
-                    Integer.parseInt(body.get("quantite").toString()),
-                    Double.parseDouble(body.get("prixUnitaire").toString()),
-                    Double.parseDouble(body.get("remise").toString()),
-                    id
-            );
-            result.put("success", rows > 0);
-            result.put("message", rows > 0
-                    ? "Ligne " + id + " modifiée sur Site2 → propagée vers Global"
-                    : "Ligne introuvable sur Site2");
-        } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", e.getMessage());
-        }
-        return result;
+// ─── UPDATE Site2 ─────────────────────────────────────────
+@PutMapping("/site2/lignes/{id}")
+public Map<String, Object> updateSite2(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+    Map<String, Object> result = new LinkedHashMap<>();
+    try {
+        jdbcTemplate.execute(
+            "BEGIN ESHOP2.UPDATE_AND_SYNC@LINK_SITE2(?, ?, ?); END;",
+            (CallableStatement cs) -> {
+                cs.setLong(1, id);
+                cs.setInt(2, Integer.parseInt(body.get("quantite").toString()));
+                cs.setDouble(3, Double.parseDouble(body.get("remise").toString()));
+                cs.execute();
+                return null;
+            }
+        );
+        result.put("success", true);
+        result.put("message", "Ligne " + id + " modifiée sur Site2 → propagée vers Global");
+    } catch (Exception e) {
+        result.put("success", false);
+        result.put("message", e.getMessage());
     }
+    return result;
+}
 
     // ─── Ajouter une commande ─────────────────────────────────
     @PostMapping("/commandes")

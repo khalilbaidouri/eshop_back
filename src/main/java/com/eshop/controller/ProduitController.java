@@ -11,17 +11,17 @@ import java.util.List;
  * @author $ {USERS}
  **/
 @RestController
-@RequestMapping("/api/produits/jj")
+@RequestMapping("/api/produits")
 @CrossOrigin("*")
 public class ProduitController {
 
     @Autowired
     private ProduitService service;
-
+/**
     @GetMapping
     public List<Produit> getAll() {
         return service.findAll();
-    }
+    } **/
 
     @PostMapping
     public Produit create(@RequestBody Produit p) {
